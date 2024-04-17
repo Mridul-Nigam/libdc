@@ -53,8 +53,7 @@ int main(int  argc,
 
 
     // open and initialize 2 devices
-for (int dev = 0; dev < 1; dev++) 
-{
+for (int dev = 0; dev < 1; dev++) {
 
         // open device
         if (drdOpenID(dev) < 0) {
@@ -104,7 +103,7 @@ for (int dev = 0; dev < 1; dev++)
             for (int j = 0; j <= dev; j++) drdClose(j);
             return -1;
         }
-}
+    }
 
     // default role assignment
     master = 1;

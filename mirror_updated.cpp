@@ -10,14 +10,6 @@
 #include<vector>
 #include "drdc.h"
 
-#define DEFAULT_K_SLAVE   500.0
-#define DEFAULT_K_BOX     500.0
-#define SLAVE_BOX_SIZE      0.06
-#define MIN_SCALE           0.2
-#define MAX_SCALE           5.0
-
-#define MIN(a,b) ((a)<(b))?(a):(b)
-#define MAX(a,b) ((a)>(b))?(a):(b)
 struct Position {
     double x;
     double y;
@@ -26,31 +18,14 @@ struct Position {
     double dt;
 };
 
-std::vector<double> receivedDataX;
-std::vector<double> receivedDataY;
-std::vector<double> receivedDataZ;
 
 int main(int  argc,
     char** argv)
 {
-    double mx0, my0, mz0;
-    double mx = 0.0, my = 0.0, mz = 0.0;
-    double sx0, sy0, sz0 = 0.0;
-    double sx, sy, sz;
     double tx, ty, tz;
-    double fx, fy, fz;
     double time;
-    double refTime = dhdGetTime();
-    double Kslave = DEFAULT_K_SLAVE;
-    double Kbox = DEFAULT_K_BOX;
-    double scale = 1;
-    bool   engaged = false;
     int    done = 0;
     int    master, slave;
-
-
-    // message
-
 
     // open and initialize 2 devices
 for (int dev = 0; dev < 1; dev++) {
@@ -119,7 +94,7 @@ for (int dev = 0; dev < 1; dev++) {
     dhdGetSerialNumber(&mastersn, master);
     dhdGetSerialNumber(&slavesn, slave);
 
-    // center both devices
+    // center the devices
     drdMoveToPos(0.0, 0.0, 0.0, false, slave);
 
     // initialize slave target position to current position
@@ -129,40 +104,14 @@ for (int dev = 0; dev < 1; dev++) {
     drdStop(true, master);
     dhdSetForce(0.0, 0.0, 0.0, master);
     drdEnableFilter(true, slave);
-    int flag = 0;
-    double time1 = 0.0;
-    int fl = 0;
-    int duration = 0;
-    double ax, vx, jk;
 
-    while (!done) {
-       
+    while (!done) {    
         Position receivedPosition;
         drdTrackPos(receivedPosition.x, receivedPosition.y, receivedPosition.z);
-        duration++;
-        if (fl < 1) {
-            time1 = drdGetTime();
-            fl = 1;
-        }
     }
 
 // print stats and check for exit condition
     time = dhdGetTime();
-    if (time - refTime > 0.04)
-    {
-        if (dhdKbHit())
-        {
-            switch (dhdKbGet())
-            {
-            case 'q': done = 1;   break;
-            case 'k': Kslave -= 100.0; break;
-            case 'K': Kslave += 100.0; break;
-            case 's': if (!engaged) scale = MAX(MIN_SCALE, scale - 0.1); break;
-            case 'S': if (!engaged) scale = MIN(MAX_SCALE, scale + 0.1); break;
-            }
-        }
-    }
-
 
     // report exit cause
     printf("                                                                           \r");

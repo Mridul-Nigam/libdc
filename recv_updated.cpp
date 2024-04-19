@@ -32,12 +32,12 @@ struct Position {
     double x;
     double y;
     double z;
-//    int64_t sendTime;
-//   double dt;
 };
 
 int sendAnswer = 0;
 int recvMsg = 1;
+char comma;
+Position receivedPosition; 
 
 void on_open(server* s, websocketpp::connection_hdl hdl) {
 	std::cout << "librecvsocket opened" << std::endl;
@@ -50,7 +50,6 @@ void on_open(server* s, websocketpp::connection_hdl hdl) {
 	s->send(hdl, libanswer, websocketpp::frame::opcode::text);
 		}).detach();
 
- Position receivedPosition;                                                                                        //declared struct
 	
 }
 
@@ -177,7 +176,10 @@ for (int dev = 0; dev < 1; dev++) {
 	dc->onMessage([&printMutex](auto message) {
 		std::unique_lock<std::mutex>(printMutex);
 
-	std::cout << "message from peer1 : " << std::get<std::string>(message) << "\n";
+	//std::cout << "message from peer1 : " << std::get<std::string>(message) << "\n";
+		
+		 std::stringstream ss(message);
+		 ss >> receivedPosition.i >> receivedPosition.x >> b >> receivedPosition.y >> c >> receivedPosition.z >> d;
 
   });
 	});
@@ -202,7 +204,7 @@ for (int dev = 0; dev < 1; dev++) {
 //---------------------------------------------------------------------------------------------------
   
     while (!done) {    
-       
+       	std::cout<<receivedPosition.i<<std::endl;
         drdTrackPos(receivedPosition.x, receivedPosition.y, receivedPosition.z);
     }
 

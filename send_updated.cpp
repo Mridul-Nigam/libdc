@@ -4,6 +4,7 @@
 using namespace std;
 #include <chrono>
 #include <cmath>
+#include <algorithm>
 #include <iomanip>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,13 +12,14 @@ using namespace std;
 #include <math.h>
 #include "drdc.h"
 #include "dhdc.h"
+
 #include "rtc/rtc.hpp"
 #include "rtc/rtcpreceivingsession.hpp"
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
-
 #include <iostream>
 #include <mutex>
+
 std::string libanswer;
 std::string iceCandidate;
 rtc::Configuration config;
@@ -27,6 +29,7 @@ auto peer1 = rtc::PeerConnection(config);
 int i = 1;
 typedef websocketpp::server<websocketpp::config::asio> server;
 std::string string;
+
 void on_open(server* s, websocketpp::connection_hdl hdl) {
 	std::cout << "on_open string: " << string<<std::endl;
 	s->send(hdl, string, websocketpp::frame::opcode::text);
@@ -55,28 +58,19 @@ void on_message(server* s, websocketpp::connection_hdl hdl, server::message_ptr 
 	}
 }
 
+#define MIN(a,b) ((a)<(b))?(a):(b)
+#define MAX(a,b) ((a)>(b))?(a):(b)
 
-struct Position {
-    double x;
-    double y;
-    double z;
-};
-
-int
-main(int  argc,
-    char** argv)
+int main(int  argc, char** argv)
 {
     double mx0, my0, mz0;
     double mx, my, mz;
     double sx0, sy0, sz0;
     double sx, sy, sz;
-
     double tx, ty, tz;
     double fx, fy, fz;
     double time;
     double refTime = dhdGetTime();
-    double Kslave = DEFAULT_K_SLAVE;
-    double Kbox = DEFAULT_K_BOX;
     double scale = 1.0;
     bool   engaged = false;
     int    done = 0;
@@ -145,8 +139,6 @@ main(int  argc,
         slave = 0;
     }
 
-
-
     dhdEmulateButton(DHD_ON, master);
 
     ushort mastersn, slavesn;
@@ -155,6 +147,13 @@ main(int  argc,
     printf("%s haptic device [sn: %04d] as master\n", dhdGetSystemName(master), mastersn);
     printf("%s haptic device [sn: %04d] as slave\n", dhdGetSystemName(slave), slavesn);
 
+    // display instructions
+    printf("\n");
+    printf("press 's' to decrease scaling factor\n");
+    printf("      'S' to increase scaling factor\n");
+    printf("      'k' to decrease virtual stiffness\n");
+    printf("      'K' to increase virtual stiffness\n");
+    printf("      'q' to quit\n\n");
 
     // center both devices
     drdMoveToPos(0.0, 0.0, 0.0, false, master);
@@ -168,7 +167,7 @@ main(int  argc,
     drdStop(true, master);
     dhdSetForce(0.0, 0.0, 0.0, master);
     //drdEnableFilter(false, slave);
-
+   
     struct forceData {
         double fX;
         double fY;
@@ -177,10 +176,13 @@ main(int  argc,
         double dt;
     };
     int encoders[DHD_MAX_DOF] = {};
- double time1 = drdGetTime();
+   
+    // master slave loop
+    double time1 = drdGetTime();
     int duration = 0;
     dhdEnableExpertMode();
-  	peer1.onStateChange([](rtc::PeerConnection::State state) {
+
+	peer1.onStateChange([](rtc::PeerConnection::State state) {
 		std::cout << "State: " << state << std::endl;
 		});
 	
@@ -206,8 +208,34 @@ main(int  argc,
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
-	while (startDataTfr == 1 ) {
-    
+	
+    while (!done && startDataTfr == 1) {
+
+        // detect button press
+        if (!engaged && dhdGetButtonMask(master) != 0x00) {
+            printf("I m here");
+            // store start position
+            dhdGetPosition(&mx0, &my0, &mz0, master);
+            dhdGetPosition(&sx0, &sy0, &sz0, slave);
+            engaged = true;
+        }
+
+        // detect button release, disable slave control
+        else if (engaged && dhdGetButtonMask(master) == 0x00) 
+	{ 
+		engaged = false; 
+        }
+        
+        // if slave control is enabled, move the slave to match the master movement
+        if (engaged) {
+            printf("%f  %f  %f\n", mx0, my0, mz0);
+            // get master position
+            dhdGetPosition(&mx, &my, &mz, master);
+            tx = sx0 + scale * (mx - mx0);
+            ty = sy0 + scale * (my - my0);
+            tz = sz0 + scale * (mz - mz0);
+        }
+        if (5 > 3) {
             dhdGetPosition(&mx, &my, &mz, master);
             dhdGetForce(&fx, &fy, &fz);
             if (dhdGetEnc(encoders) < 0)
@@ -215,21 +243,17 @@ main(int  argc,
                 std::cout << "error: failed to read encoders (" << dhdErrorGetLastStr() << ")" << std::endl;
                 break;
             }
-            //auto sendTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            auto sendTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             dhdGetPosition(&mx, &my, &mz);
+            forceData fd = { mx,my,mz, sendTime, drdGetTime()-time1};
+            duration++;
+            //printf("\ndata# %d curr: %f sent position: %d % d % d ",duration, drdGetTime() - time1, encoders[0], encoders[1], encoders[2]);
             dhdSleep(0.02);
-        
-        fx = fy = fz = 0.0;
-        // apply force to master
-        dhdSetForce(fx, fy, fz, master);
-
-		std::vector<int> array;
+	    std::vector<int> array;
 		array.push_back(i);
-		array.push_back(2);
-		array.push_back(3);
-		array.push_back(4);
-		array.push_back(5);
-		array.push_back(6);
+		array.push_back(mx);
+		array.push_back(my);
+		array.push_back(mz);
 
 		std::cout << "The array no. " << i << " sending is: ";
 		for (const auto& element : array) {
@@ -247,11 +271,17 @@ main(int  argc,
 			}
 		}
 		channel1->send(rtc::message_variant(ss.str()));
-	}
+        }
+
+        fx = fy = fz = 0.0;
+        // apply force to master
+        dhdSetForce(fx, fy, fz, master);
+
+    }
 			}).detach();
 		
 		});
-
+	
 	server ws_server;
 
 	// Register message handler
@@ -266,6 +296,7 @@ main(int  argc,
 	// Run the server
 	ws_server.run();
 	std::cin.ignore();
+
 
     // report exit cause
     printf("                                                                           \r");

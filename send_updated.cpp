@@ -28,34 +28,34 @@ int msgRecd = 1;
 auto peer1 = rtc::PeerConnection(config);
 int i = 1;
 typedef websocketpp::server<websocketpp::config::asio> server;
-std::string string;
+std::string string1;
 
 void on_open(server* s, websocketpp::connection_hdl hdl) {
-	std::cout << "on_open string: " << string<<std::endl;
-	s->send(hdl, string, websocketpp::frame::opcode::text);
+    std::cout << "on_open string: " << string1 << std::endl;
+    s->send(hdl, string1, websocketpp::frame::opcode::text);
 }
 
 void on_close(server* s, websocketpp::connection_hdl hdl) {
-	std::cout << "Connection closed" << std::endl;
+    std::cout << "Connection closed" << std::endl;
 }
 
 void on_message(server* s, websocketpp::connection_hdl hdl, server::message_ptr msg) {
-	if (msgRecd == 1) {
-		libanswer = msg->get_payload();
-		std::cout << "Received Message libanswer: " << libanswer << std::endl;
-		peer1.setRemoteDescription(rtc::Description(libanswer));
-		std::cout << "libanswer received" << std::endl;
-		s->send(hdl, iceCandidate, websocketpp::frame::opcode::text);
-		msgRecd++;
-	}
-	else if (msgRecd == 2) {
-		startDataTfr = std::stoi(msg->get_payload());
-		msgRecd++;
-	}
-	else {
-		startDataTfr = std::stoi(msg->get_payload());
-		
-	}
+    if (msgRecd == 1) {
+        libanswer = msg->get_payload();
+        std::cout << "Received Message libanswer: " << libanswer << std::endl;
+        peer1.setRemoteDescription(rtc::Description(libanswer));
+        std::cout << "libanswer received" << std::endl;
+        s->send(hdl, iceCandidate, websocketpp::frame::opcode::text);
+        msgRecd++;
+    }
+    else if (msgRecd == 2) {
+        startDataTfr = std::stoi(msg->get_payload());
+        msgRecd++;
+    }
+    else {
+        startDataTfr = std::stoi(msg->get_payload());
+
+    }
 }
 
 #define MIN(a,b) ((a)<(b))?(a):(b)
@@ -167,7 +167,7 @@ int main(int  argc, char** argv)
     drdStop(true, master);
     dhdSetForce(0.0, 0.0, 0.0, master);
     //drdEnableFilter(false, slave);
-   
+
     struct forceData {
         double fX;
         double fY;
@@ -176,126 +176,127 @@ int main(int  argc, char** argv)
         double dt;
     };
     int encoders[DHD_MAX_DOF] = {};
-   
+
     // master slave loop
     double time1 = drdGetTime();
     int duration = 0;
     dhdEnableExpertMode();
 
-	peer1.onStateChange([](rtc::PeerConnection::State state) {
-		std::cout << "State: " << state << std::endl;
-		});
-	
+    peer1.onStateChange([](rtc::PeerConnection::State state) {
+        std::cout << "State: " << state << std::endl;
+        });
 
-	peer1.onLocalDescription([](rtc::Description description) {
-		
-		string = std::string(description);
-	std::cout << "string: " << string << "\n";
-	//peer2.setRemoteDescription(description);
-		});
-	
-	peer1.onLocalCandidate([](auto candidate) {
-		std::cout << "candidate: " << candidate << "\n";
-	iceCandidate = std::string(candidate);
-		//peer2.addRemoteCandidate(candidate);
-		});
-	
-	auto channel1 = peer1.createDataChannel("test");
-	
-	channel1->onOpen([&channel1]() {
-		std::thread([&channel1]() {
-		while(startDataTfr==0)
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		}
-	
-    while (!done && startDataTfr == 1) {
 
-        // detect button press
-        if (!engaged && dhdGetButtonMask(master) != 0x00) {
-            printf("I m here");
-            // store start position
-            dhdGetPosition(&mx0, &my0, &mz0, master);
-            dhdGetPosition(&sx0, &sy0, &sz0, slave);
-            engaged = true;
-        }
+    peer1.onLocalDescription([](rtc::Description description) {
 
-        // detect button release, disable slave control
-        else if (engaged && dhdGetButtonMask(master) == 0x00) 
-	{ 
-		engaged = false; 
-        }
-        
-        // if slave control is enabled, move the slave to match the master movement
-        if (engaged) {
-            printf("%f  %f  %f\n", mx0, my0, mz0);
-            // get master position
-            dhdGetPosition(&mx, &my, &mz, master);
-            tx = sx0 + scale * (mx - mx0);
-            ty = sy0 + scale * (my - my0);
-            tz = sz0 + scale * (mz - mz0);
-        }
-        if (5 > 3) {
-            dhdGetPosition(&mx, &my, &mz, master);
-            dhdGetForce(&fx, &fy, &fz);
-            if (dhdGetEnc(encoders) < 0)
+        string1 = std::string(description);
+        std::cout << "string: " << string1 << "\n";
+        //peer2.setRemoteDescription(description);
+        });
+
+    peer1.onLocalCandidate([](auto candidate) {
+        std::cout << "candidate: " << candidate << "\n";
+        iceCandidate = std::string(candidate);
+        //peer2.addRemoteCandidate(candidate);
+        });
+
+    auto channel1 = peer1.createDataChannel("test");
+
+    channel1->onOpen([&channel1, &encoders, &scale, &done, &engaged, &master, &mx0, &my0, &mz0, &sx0, &sy0, &sz0, &slave, &tx, &ty, &tz, &mx, &my, &mz, &fx, &fy, &fz, &time1]() {
+        std::thread([&channel1, &encoders, &scale, &done, &engaged, &master, &mx0, &my0, &mz0, &sx0, &sy0, &sz0, &slave, &tx, &ty, &tz, &mx, &my, &mz, &fx, &fy, &fz, &time1]() {
+            while (startDataTfr == 0)
             {
-                std::cout << "error: failed to read encoders (" << dhdErrorGetLastStr() << ")" << std::endl;
-                break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
-            auto sendTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-            dhdGetPosition(&mx, &my, &mz);
-            forceData fd = { mx,my,mz, sendTime, drdGetTime()-time1};
-            duration++;
-            //printf("\ndata# %d curr: %f sent position: %d % d % d ",duration, drdGetTime() - time1, encoders[0], encoders[1], encoders[2]);
-            dhdSleep(0.02);
-	    std::vector<int> array;
-		array.push_back(i);
-		array.push_back(mx);
-		array.push_back(my);
-		array.push_back(mz);
 
-		std::cout << "The array no. " << i << " sending is: ";
-		for (const auto& element : array) {
-			std::cout << element << " ";
-		}
-		std::cout << std::endl;
-		++i;
+            while (!done && startDataTfr == 1) {
 
-		// Convert the array to a comma-separated string
-		std::stringstream ss;
-		for (size_t i = 0; i < array.size(); ++i) {
-			ss << array[i];
-			if (i < array.size() - 1) {
-				ss << ",";
-			}
-		}
-		channel1->send(rtc::message_variant(ss.str()));
-        }
+                // detect button press
+                if (!engaged && dhdGetButtonMask(master) != 0x00) {
+                    printf("I m here");
+                    // store start position
+                    dhdGetPosition(&mx0, &my0, &mz0, master);
+                    dhdGetPosition(&sx0, &sy0, &sz0, slave);
+                    engaged = true;
+                }
 
-        fx = fy = fz = 0.0;
-        // apply force to master
-        dhdSetForce(fx, fy, fz, master);
+                // detect button release, disable slave control
+                else if (engaged && dhdGetButtonMask(master) == 0x00)
+                {
+                    engaged = false;
+                }
 
-    }
-			}).detach();
-		
-		});
-	
-	server ws_server;
+                // if slave control is enabled, move the slave to match the master movement
+                if (engaged) {
+                    printf("%f  %f  %f\n", mx0, my0, mz0);
+                    // get master position
+                    dhdGetPosition(&mx, &my, &mz, master);
+                    tx = sx0 + scale * (mx - mx0);
+                    ty = sy0 + scale * (my - my0);
+                    tz = sz0 + scale * (mz - mz0);
+                }
+                if (5 > 3) {
+                    dhdGetPosition(&mx, &my, &mz, master);
+                    dhdGetForce(&fx, &fy, &fz);
+                    if (dhdGetEnc(encoders) < 0)
+                    {
+                        std::cout << "error: failed to read encoders (" << dhdErrorGetLastStr() << ")" << std::endl;
+                        break;
+                    }
+                    auto sendTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+                    dhdGetPosition(&mx, &my, &mz);
+                    forceData fd = { mx,my,mz, sendTime, drdGetTime() - time1 };
+                    //duration++;
+                    //printf("\ndata# %d curr: %f sent position: %d % d % d ",duration, drdGetTime() - time1, encoders[0], encoders[1], encoders[2]);
+                    dhdSleep(0.02);
+                    std::vector<int> array;
+                    array.push_back(i);
+                    array.push_back(mx);
+                    array.push_back(my);
+                    array.push_back(mz);
 
-	// Register message handler
-	ws_server.set_message_handler(std::bind(&on_message, &ws_server, std::placeholders::_1, std::placeholders::_2));
-	ws_server.set_close_handler(std::bind(&on_close, &ws_server, std::placeholders::_1));
-	ws_server.set_open_handler(std::bind(&on_open, &ws_server, std::placeholders::_1));
-	// Initialize the server
-	ws_server.init_asio();
-	ws_server.listen(9004);
-	ws_server.start_accept();
+                    std::cout << "The array no. " << i << " sending is: ";
+                    for (const auto& element : array) {
+                        std::cout << element << " ";
+                    }
+                    std::cout << std::endl;
+                    ++i;
 
-	// Run the server
-	ws_server.run();
-	std::cin.ignore();
+                    // Convert the array to a comma-separated string
+                    std::stringstream ss;
+                    for (size_t i = 0; i < array.size(); ++i) {
+                        ss << array[i];
+                        if (i < array.size() - 1) {
+                            ss << ",";
+                        }
+                    }
+                    channel1->send(rtc::message_variant(ss.str()));
+                }
+
+                fx = fy = fz = 0.0;
+                // apply force to master
+                dhdSetForce(fx, fy, fz, master);
+
+            }
+            }).detach();
+
+        }); 
+
+    server ws_server;
+    std::cout << "creating server" << std::endl;
+    // Register message handler
+    ws_server.set_message_handler(std::bind(&on_message, &ws_server, std::placeholders::_1, std::placeholders::_2));
+    ws_server.set_close_handler(std::bind(&on_close, &ws_server, std::placeholders::_1));
+    ws_server.set_open_handler(std::bind(&on_open, &ws_server, std::placeholders::_1));
+    // Initialize the server
+    ws_server.init_asio();
+    ws_server.listen(9004);
+    ws_server.start_accept();
+
+    // Run the server
+    ws_server.run();
+    std::cout << "server running"<<std::endl;
+    std::cin.ignore();
 
 
     // report exit cause
